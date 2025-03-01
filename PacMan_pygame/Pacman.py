@@ -5,14 +5,6 @@ import random
 from enum import Enum
 
 
-class Movement(Enum):
-    DOWN = -90
-    RIGHT = 0
-    UP = 90
-    LEFT = 180
-    NONE = 360
-
-
 class Score(Enum):
     COOKIE = 10
     POWERUP = 50
@@ -23,21 +15,20 @@ class GhostMode(Enum):
     CHASE = 1
     SCATTER = 2
 
+class Movement(Enum):
+    DOWN = -90
+    RIGHT = 0
+    UP = 90
+    LEFT = 180
+    NONE = 360
 
-def screen_to_maze(coord, size=32):
-    return int(coord[0] / size), int(coord[1] / size)
 
-
-def maze_to_screen(coord, size=32):
-    return coord[0] * size, coord[1] * size
-
-
-class GameObject:
+class GameObj:
     def __init__(self, surface, x, y,
                  size: int, color=(255, 0, 0),
                  is_circle: bool = False):
         self._size = size
-        self.renderer: Renderer = surface
+        self.renderer: Render = surface
         self.surface = surface.screen
         self.y = y
         self.x = x
@@ -72,12 +63,12 @@ class GameObject:
         return (self.x, self.y)
 
 
-class Wall(GameObject):
+class Wall(GameObj):
     def __init__(self, surface, x, y, size: int, color=(0, 0, 255)):
         super().__init__(surface, x * size, y * size, size, color)
 
 
-class Renderer:
+class Render:
     def __init__(self, width: int, height: int):
         pygame.init()
         self.width = width
@@ -128,7 +119,7 @@ class Renderer:
             pygame.display.flip()
             self.clock.tick(fps)
             self.screen.fill(black)
-            self._handle_events()
+            self.handle_events()
 
     def switch_mode(self):
         phase_timing = self.modes[self.current_phase]
@@ -147,22 +138,22 @@ class Renderer:
     def start_powerup_timeout(self):
         pygame.time.set_timer(self.powerup_end_event, 10000)  # 10s
 
-    def add_game_object(self, obj: GameObject):
+    def add_game_obj(self, obj: GameObj):
         self.game_objects.append(obj)
 
-    def add_cookie(self, obj: GameObject):
+    def add_cookie(self, obj: GameObj):
         self.game_objects.append(obj)
         self.cookies.append(obj)
 
-    def add_ghost(self, obj: GameObject):
+    def add_ghost(self, obj: GameObj):
         self.game_objects.append(obj)
         self.ghosts.append(obj)
 
-    def add_powerup(self, obj: GameObject):
+    def add_powerup(self, obj: GameObj):
         self.game_objects.append(obj)
         self.powerups.append(obj)
 
-    def activate_powerup(self):
+    def active_powerup(self):
         self.powerup_active = True
         self.set_current_mode(GhostMode.SCATTER)
         self.start_powerup_timeout()
@@ -193,7 +184,7 @@ class Renderer:
     def kill_pacman(self):
         self.lives -= 1
         self.pacman.set_position(32, 32)
-        self.pacman.set_direction(Movement.NONE)
+        self.pacman.set_dir(Movement.NONE)
         if self.lives == 0: self.end_game()
 
     def display_text(self, text, in_position=(32, 0), in_size=30):
@@ -205,7 +196,7 @@ class Renderer:
         return self.powerup_active
 
     def add_wall(self, obj: Wall):
-        self.add_game_object(obj)
+        self.add_game_obj(obj)
         self.walls.append(obj)
 
     def get_walls(self):
@@ -224,10 +215,10 @@ class Renderer:
         return self.game_objects
 
     def add_hero(self, pacman):
-        self.add_game_object(pacman)
+        self.add_game_obj(pacman)
         self.pacman = pacman
 
-    def _handle_events(self):
+    def handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.done = True
@@ -245,16 +236,17 @@ class Renderer:
         pressed = pygame.key.get_pressed()
         if self.pacman is None: return
         if pressed[pygame.K_UP]:
-            self.pacman.set_direction(Movement.UP)
+            self.pacman.set_dir(Movement.UP)
         elif pressed[pygame.K_LEFT]:
-            self.pacman.set_direction(Movement.LEFT)
+            self.pacman.set_dir(Movement.LEFT)
         elif pressed[pygame.K_DOWN]:
-            self.pacman.set_direction(Movement.DOWN)
+            self.pacman.set_dir(Movement.DOWN)
         elif pressed[pygame.K_RIGHT]:
-            self.pacman.set_direction(Movement.RIGHT)
+            self.pacman.set_dir(Movement.RIGHT)
 
 
-class MovableObject(GameObject):
+
+class MovableObj(GameObj):
     def __init__(self, surface, x, y, size: int, color=(255, 0, 0), is_circle: bool = False):
         super().__init__(surface, x, y, size, color, is_circle)
         self.current_direction = Movement.NONE
@@ -267,7 +259,7 @@ class MovableObject(GameObject):
     def get_next_location(self):
         return None if len(self.location_queue) == 0 else self.location_queue.pop(0)
 
-    def set_direction(self, direction):
+    def set_dir(self, direction):
         self.current_direction = direction
         self.direction_buff = direction
 
@@ -309,7 +301,7 @@ class MovableObject(GameObject):
         self.surface.blit(self.image, self.get_shape())
 
 
-class Pacman(MovableObject):
+class Pacman(MovableObj):
     def __init__(self, surface, x, y, size: int):
         super().__init__(surface, x, y, size, (255, 255, 0), False)
         self.last_notcolliding_position = (0, 0)
@@ -376,7 +368,7 @@ class Pacman(MovableObject):
                 if not self.renderer.is_powerup_active():
                     game_objects.remove(powerup)
                     self.renderer.add_score(Score.POWERUP)
-                    self.renderer.activate_powerup()
+                    self.renderer.active_powerup()
 
     def handle_ghosts(self):
         collision_rect = pygame.Rect(self.x, self.y, self._size, self._size)
@@ -398,7 +390,7 @@ class Pacman(MovableObject):
         super(Pacman, self).draw()
 
 
-class Ghost(MovableObject):
+class Ghost(MovableObj):
     def __init__(self, in_surface, x, y, size: int, game_controller, sprite_path="images/ghost_fright.png"):
         super().__init__(in_surface, x, y, size)
         self.game_controller = game_controller
@@ -460,12 +452,12 @@ class Ghost(MovableObject):
         super(Ghost, self).draw()
 
 
-class Point(GameObject):
+class Point(GameObj):
     def __init__(self, surface, x, y):
         super().__init__(surface, x, y, 4, (255, 255, 0), True)
 
 
-class Powerup(GameObject):
+class Powerup(GameObj):
     def __init__(self, surface, x, y):
         super().__init__(surface, x, y, 8, (255, 255, 255), True)
 
@@ -550,12 +542,18 @@ class GameController:
 
             self.numpy_maze.append(binary_row)
 
+def screen_to_maze(coord, size=32):
+    return int(coord[0] / size), int(coord[1] / size)
+
+
+def maze_to_screen(coord, size=32):
+    return coord[0] * size, coord[1] * size
 
 if __name__ == "__main__":
     unified_size = 32
     pacman_game = GameController()
     size = pacman_game.size
-    game_renderer = Renderer(size[0] * unified_size, size[1] * unified_size)
+    game_renderer = Render(size[0] * unified_size, size[1] * unified_size)
 
     for y, row in enumerate(pacman_game.numpy_maze):
         for x, column in enumerate(row):
