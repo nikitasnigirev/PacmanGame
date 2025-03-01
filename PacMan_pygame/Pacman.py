@@ -502,7 +502,7 @@ class GameController:
             "XXX XX XX XXXXXXXX XX XX XXX",
             "XXX    XX    G     XX    XXX",
             "XXX XX XX XXXXXXXX XX XX XXX",
-            "XXX XX XX XXXXXXXX XX XX XXX",
+            "XXX XXOXX XXXXXXXX XXOXX XXX",
             "XXX          G           XXX",
             "XXXXXXXXXXXXXXXXXXXXXXXXXXXX"
         ]
